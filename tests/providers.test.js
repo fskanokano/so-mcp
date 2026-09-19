@@ -2,7 +2,7 @@
  * tests/providers.test.js
  * 供应商层单测：全部用桩 fetchImpl，不打真实网络。
  * 覆盖搜索映射、抓取 retryable 标记、批量结算、缺键抛码、回退链、分级上限、搜索扇出、
- * 余额端点鉴权、八家余额（六家实调两家占位）、动态钱包双家与空名单。
+ * 余额端点鉴权、十六家余额（六家实调十家占位）、动态钱包双家与空名单。
  */
 
 import { describe, it } from 'node:test';
@@ -10,6 +10,16 @@ import assert from 'node:assert/strict';
 import { tavilySearch } from '../lib/providers/search-tavily.js';
 import { tinyfishFetch } from '../lib/providers/fetch-tinyfish.js';
 import { tavilyFetch } from '../lib/providers/fetch-tavily.js';
+import { langsearchSearch } from '../lib/providers/search-langsearch.js';
+import { gnewsSearch } from '../lib/providers/search-gnews.js';
+import { jinaSearch } from '../lib/providers/search-jina.js';
+import { youcomSearch } from '../lib/providers/search-youcom.js';
+import { youcomFetch } from '../lib/providers/fetch-youcom.js';
+import { brightdataFetch } from '../lib/providers/fetch-brightdata.js';
+import { browserlessFetch } from '../lib/providers/fetch-browserless.js';
+import { jinaFetch } from '../lib/providers/fetch-jina.js';
+import { scrapingantFetch } from '../lib/providers/fetch-scrapingant.js';
+import { apifyFetch } from '../lib/providers/fetch-apify.js';
 import {
   getTinyfishWallet,
   getTavilyBalance,
@@ -19,6 +29,14 @@ import {
   getScraperapiBalance,
   getExaBalance,
   getQueritBalance,
+  getLangsearchBalance,
+  getYoucomBalance,
+  getBrightdataBalance,
+  getBrowserlessBalance,
+  getJinaBalance,
+  getScrapingantBalance,
+  getApifyBalance,
+  getGnewsBalance,
 } from '../lib/credits.js';
 import { dispatchTool } from '../lib/tools.js';
 import { handleCredits } from '../lib/endpoints/credits.js';
@@ -133,6 +151,153 @@ describe('tavilySearch 缺 Key', () => {
     };
     await assert.rejects(
       tavilySearch({ query: '单测' }, { fetchImpl: neverStub }),
+      (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
+    );
+  });
+});
+/** LangSearch 映射：results 归一为 title/url/content，缺键抛 CREDENTIAL_MISSING。 */
+describe('langsearchSearch 映射与缺键', () => {
+  it('两种字段形态都归一', async () => {
+    /** @type {(url: string, init?: any) => Promise<any>} LangSearch 搜索桩 */
+    const langsearchStub = async (url) => {
+      assert.match(String(url), /api\.langsearch\.com\/v1\/web-search/);
+      return stubResponse({
+        results: [
+          { title: '郎标题甲', url: 'https://case.local/1', content: '郎正文甲' },
+          { title: '郎标题乙', url: 'https://case.local/2', snippet: '郎正文乙' },
+        ],
+      });
+    };
+    const out = await langsearchSearch({ query: '单测' }, {
+      langsearchApiKey: 'test-key',
+      fetchImpl: langsearchStub,
+    });
+    assert.equal(out.provider, 'langsearch');
+    assert.equal(out.results.length, 2);
+    assert.deepEqual(
+      { title: out.results[0].title, url: out.results[0].url, content: out.results[0].content },
+      { title: '郎标题甲', url: 'https://case.local/1', content: '郎正文甲' },
+    );
+    assert.deepEqual(
+      { title: out.results[1].title, url: out.results[1].url, content: out.results[1].content },
+      { title: '郎标题乙', url: 'https://case.local/2', content: '郎正文乙' },
+    );
+  });
+
+  it('缺 Key 抛 CREDENTIAL_MISSING', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('缺 Key 时不应发起请求');
+    };
+    await assert.rejects(
+      langsearchSearch({ query: '单测' }, { fetchImpl: neverStub }),
+      (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
+    );
+  });
+});
+
+/** You.com 搜索映射：results 归一为 title/url/content，缺键抛 CREDENTIAL_MISSING。 */
+describe('youcomSearch 映射与缺键', () => {
+  it('两种字段形态都归一', async () => {
+    /** @type {(url: string, init?: any) => Promise<any>} You.com 搜索桩 */
+    const youcomStub = async (url) => {
+      assert.match(String(url), /api\.ydc-index\.io\/search/);
+      return stubResponse({
+        results: [
+          { title: '优标题甲', url: 'https://case.local/1', snippet: '优正文甲' },
+          { title: '优标题乙', url: 'https://case.local/2', content: '优正文乙' },
+        ],
+      });
+    };
+    const out = await youcomSearch({ query: '单测' }, {
+      youcomApiKey: 'test-key',
+      fetchImpl: youcomStub,
+    });
+    assert.equal(out.provider, 'youcom');
+    assert.equal(out.results.length, 2);
+    assert.deepEqual(
+      { title: out.results[0].title, url: out.results[0].url, content: out.results[0].content },
+      { title: '优标题甲', url: 'https://case.local/1', content: '优正文甲' },
+    );
+    assert.deepEqual(
+      { title: out.results[1].title, url: out.results[1].url, content: out.results[1].content },
+      { title: '优标题乙', url: 'https://case.local/2', content: '优正文乙' },
+    );
+  });
+
+  it('缺 Key 抛 CREDENTIAL_MISSING', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('缺 Key 时不应发起请求');
+    };
+    await assert.rejects(
+      youcomSearch({ query: '单测' }, { fetchImpl: neverStub }),
+      (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
+    );
+  });
+});
+
+/** You.com 抓取批量结算：成功地址进 results，失败地址进 errors 且不可重试。 */
+describe('youcomFetch 批量结算', () => {
+  it('逐地址结算互不干扰', async () => {
+    /** @type {(url: string, init?: any) => Promise<any>} 新版 POST 端点按体分流的桩 */
+    const batchStub = async (url, init = {}) => {
+      assert.match(String(url), /youcom\.local\/v1\/contents/);
+      const asked = JSON.parse(init.body || '{}').urls || [];
+      if (asked.includes(BAD_URL)) {
+        return stubResponse({ error: 'not_found' }, 404);
+      }
+      return stubResponse({
+        contents: asked.map((/** @type {any} */ target) => ({ url: target, title: '好标题', markdown: '好正文' })),
+      });
+    };
+    const out = await youcomFetch({ urls: [GOOD_URL, BAD_URL] }, {
+      youcomApiKey: 'test-key',
+      fetchUrlYoucom: 'https://youcom.local/v1/contents',
+      fetchImpl: batchStub,
+    });
+    assert.equal(out.results.length, 1);
+    assert.equal(out.results[0].url, GOOD_URL);
+    assert.equal(out.results[0].content, '好正文');
+    assert.equal(out.errors.length, 1);
+    assert.equal(out.errors[0].url, BAD_URL);
+    assert.equal(out.errors[0].retryable, false);
+  });
+});
+
+/** BrightData 抓取：无 zone 可发网且请求体不带 zone，缺键抛 CREDENTIAL_MISSING。 */
+describe('brightdataFetch 无 zone 与缺键', () => {
+  it('无 zone 可发网且请求体不带 zone', async () => {
+    /** @type {any} 捕获到的上游请求体 */
+    let seenBody;
+    /** @type {(url: string, init?: any) => Promise<any>} 断言请求体并回固定正文的桩 */
+    const noZoneStub = async (url, init = {}) => {
+      assert.match(String(url), /api\.brightdata\.com\/request/);
+      seenBody = JSON.parse(init.body || '{}');
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => '' },
+        text: async () => '# 好标题\n好正文',
+      };
+    };
+    const out = await brightdataFetch({ urls: [GOOD_URL] }, {
+      brightdataApiKey: 'test-key',
+      fetchImpl: noZoneStub,
+    });
+    assert.equal(out.results.length, 1);
+    assert.equal(out.results[0].url, GOOD_URL);
+    assert.equal(out.results[0].content, '# 好标题\n好正文');
+    assert.equal('zone' in (seenBody ?? {}), false);
+  });
+
+  it('缺 Key 抛 CREDENTIAL_MISSING', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('缺 Key 时不应发起请求');
+    };
+    await assert.rejects(
+      brightdataFetch({ urls: [GOOD_URL] }, { fetchImpl: neverStub }),
       (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
     );
   });
@@ -388,6 +553,327 @@ describe('getExaBalance/getQueritBalance 占位', () => {
   });
 });
 
+/** Langsearch/Youcom/Brightdata 占位：无公开余额接口，不触网。 */
+describe('getLangsearchBalance/getYoucomBalance/getBrightdataBalance 占位', () => {
+  it('三个占位余额回 null 不触网', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('占位不应触碰网络');
+    };
+    const langsearchOut = await getLangsearchBalance({ fetchImpl: neverStub });
+    assert.equal(langsearchOut.provider, 'langsearch');
+    assert.equal(langsearchOut.balance, null);
+    assert.equal(langsearchOut.remaining, null);
+    const youcomOut = await getYoucomBalance({ fetchImpl: neverStub });
+    assert.equal(youcomOut.provider, 'youcom');
+    assert.equal(youcomOut.balance, null);
+    assert.equal(youcomOut.remaining, null);
+    const brightdataOut = await getBrightdataBalance({ fetchImpl: neverStub });
+    assert.equal(brightdataOut.provider, 'brightdata');
+    assert.equal(brightdataOut.balance, null);
+    assert.equal(brightdataOut.remaining, null);
+  });
+});
+
+/** GNews 搜索映射：articles 归一为 title/url/content，缺键抛 CREDENTIAL_MISSING。 */
+describe('gnewsSearch 映射与缺键', () => {
+  it('两种字段形态都归一', async () => {
+    /** @type {(url: string, init?: any) => Promise<any>} GNews 搜索桩 */
+    const gnewsStub = async (url) => {
+      assert.match(String(url), /gnews\.local\/api\/v4\/search/);
+      assert.match(String(url), /apikey=/);
+      return stubResponse({
+        articles: [
+          { title: '新标题甲', url: 'https://case.local/1', description: '新正文甲' },
+          { title: '新标题乙', link: 'https://case.local/2', content: '新正文乙' },
+        ],
+      });
+    };
+    const out = await gnewsSearch({ query: '单测' }, {
+      gnewsApiKey: 'test-key',
+      searchUrlGnews: 'https://gnews.local/api/v4/search',
+      fetchImpl: gnewsStub,
+    });
+    assert.equal(out.provider, 'gnews');
+    assert.equal(out.results.length, 2);
+    assert.deepEqual(
+      { title: out.results[0].title, url: out.results[0].url, content: out.results[0].content },
+      { title: '新标题甲', url: 'https://case.local/1', content: '新正文甲' },
+    );
+    assert.deepEqual(
+      { title: out.results[1].title, url: out.results[1].url, content: out.results[1].content },
+      { title: '新标题乙', url: 'https://case.local/2', content: '新正文乙' },
+    );
+  });
+
+  it('缺 Key 抛 CREDENTIAL_MISSING', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('缺 Key 时不应发起请求');
+    };
+    await assert.rejects(
+      gnewsSearch({ query: '单测' }, { fetchImpl: neverStub }),
+      (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
+    );
+  });
+});
+
+/** Jina 搜索映射：results/data 归一为 title/url/content，缺键抛 CREDENTIAL_MISSING。 */
+describe('jinaSearch 映射与缺键', () => {
+  it('两种字段形态都归一', async () => {
+    /** @type {(url: string, init?: any) => Promise<any>} Jina 搜索桩 */
+    const jinaStub = async (url) => {
+      assert.match(String(url), /jina-search\.local/);
+      return stubResponse({
+        results: [
+          { title: '金标题甲', url: 'https://case.local/1', content: '金正文甲' },
+          { title: '金标题乙', link: 'https://case.local/2', snippet: '金正文乙' },
+        ],
+      });
+    };
+    const out = await jinaSearch({ query: '单测' }, {
+      jinaApiKey: 'test-key',
+      searchUrlJina: 'https://jina-search.local/',
+      fetchImpl: jinaStub,
+    });
+    assert.equal(out.provider, 'jina');
+    assert.equal(out.results.length, 2);
+    assert.deepEqual(
+      { title: out.results[0].title, url: out.results[0].url, content: out.results[0].content },
+      { title: '金标题甲', url: 'https://case.local/1', content: '金正文甲' },
+    );
+    assert.deepEqual(
+      { title: out.results[1].title, url: out.results[1].url, content: out.results[1].content },
+      { title: '金标题乙', url: 'https://case.local/2', content: '金正文乙' },
+    );
+  });
+
+  it('缺 Key 抛 CREDENTIAL_MISSING', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('缺 Key 时不应发起请求');
+    };
+    await assert.rejects(
+      jinaSearch({ query: '单测' }, { fetchImpl: neverStub }),
+      (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
+    );
+  });
+});
+
+/** Browserless 抓取：无 zone 可发网且请求体不带 zone，批量结算互不干扰，缺键抛 CREDENTIAL_MISSING。 */
+describe('browserlessFetch 无 zone 与缺键', () => {
+  it('无 zone 可发网且请求体不带 zone', async () => {
+    /** @type {any[]} 捕获到的上游请求体 */
+    const seenBodies = [];
+    /** @type {(url: string, init?: any) => Promise<any>} 单地址分流的桩 */
+    const noZoneStub = async (url, init = {}) => {
+      assert.match(String(url), /browserless\.local\/scrape/);
+      assert.match(String(url), /token=/);
+      seenBodies.push(JSON.parse(init.body || '{}'));
+      if (String(init.body || '').includes(BAD_URL)) {
+        return { ok: false, status: 404, headers: { get: () => '' }, text: async () => '' };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => '' },
+        text: async () => '# 好标题\n好正文',
+      };
+    };
+    const out = await browserlessFetch({ urls: [GOOD_URL, BAD_URL] }, {
+      browserlessApiKey: 'test-key',
+      fetchUrlBrowserless: 'https://browserless.local/scrape',
+      fetchImpl: noZoneStub,
+    });
+    assert.equal(out.results.length, 1);
+    assert.equal(out.results[0].url, GOOD_URL);
+    assert.equal(out.results[0].content, '# 好标题\n好正文');
+    assert.equal(out.errors.length, 1);
+    assert.equal(out.errors[0].url, BAD_URL);
+    assert.equal(out.errors[0].retryable, false);
+    const goodBody = seenBodies.find((/** @type {any} */ item) => item.url === GOOD_URL);
+    assert.ok(goodBody);
+    assert.equal('zone' in (goodBody ?? {}), false);
+    assert.deepEqual(goodBody.elements, [{ selector: 'body' }]);
+  });
+
+  it('缺 Key 抛 CREDENTIAL_MISSING', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('缺 Key 时不应发起请求');
+    };
+    await assert.rejects(
+      browserlessFetch({ urls: [GOOD_URL] }, { fetchImpl: neverStub }),
+      (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
+    );
+  });
+});
+
+/** Jina 抓取批量结算：成功地址进 results，失败地址进 errors 且不可重试，缺键抛 CREDENTIAL_MISSING。 */
+describe('jinaFetch 批量结算与缺键', () => {
+  it('逐地址结算互不干扰', async () => {
+    /** @type {(url: string, init?: any) => Promise<any>} 按地址分流的桩 */
+    const batchStub = async (url, init = {}) => {
+      assert.match(String(url), /jina\.local/);
+      assert.equal(init.headers?.Authorization, 'Bearer test-key');
+      if (String(url).includes(BAD_URL)) {
+        return { ok: false, status: 404, headers: { get: () => '' }, text: async () => '' };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => '' },
+        text: async () => '# 好标题\n好正文',
+      };
+    };
+    const out = await jinaFetch({ urls: [GOOD_URL, BAD_URL] }, {
+      jinaApiKey: 'test-key',
+      fetchUrlJina: 'https://jina.local/',
+      fetchImpl: batchStub,
+    });
+    assert.equal(out.results.length, 1);
+    assert.equal(out.results[0].url, GOOD_URL);
+    assert.equal(out.results[0].content, '# 好标题\n好正文');
+    assert.equal(out.errors.length, 1);
+    assert.equal(out.errors[0].url, BAD_URL);
+    assert.equal(out.errors[0].retryable, false);
+  });
+
+  it('缺 Key 抛 CREDENTIAL_MISSING', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('缺 Key 时不应发起请求');
+    };
+    await assert.rejects(
+      jinaFetch({ urls: [GOOD_URL] }, { fetchImpl: neverStub }),
+      (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
+    );
+  });
+});
+
+/** ScrapingAnt/Apify 抓取批量结算：成功地址进 results，失败地址进 errors，缺键抛 CREDENTIAL_MISSING。 */
+describe('scrapingantFetch/apifyFetch 批量结算与缺键', () => {
+  it('ScrapingAnt 默认不渲染且逐地址结算', async () => {
+    /** @type {(url: string, init?: any) => Promise<any>} 按地址分流的桩 */
+    const batchStub = async (url) => {
+      assert.match(String(url), /scrapingant\.local\/v2\/general/);
+      assert.match(String(url), /browser=false/);
+      if (String(url).includes(encodeURIComponent(BAD_URL))) {
+        return { ok: false, status: 404, headers: { get: () => '' }, text: async () => '' };
+      }
+      return { ok: true, status: 200, headers: { get: () => '' }, text: async () => '好正文' };
+    };
+    const out = await scrapingantFetch({ urls: [GOOD_URL, BAD_URL] }, {
+      scrapingantApiKey: 'test-key',
+      fetchUrlScrapingant: 'https://scrapingant.local/v2/general',
+      fetchImpl: batchStub,
+    });
+    assert.equal(out.results.length, 1);
+    assert.equal(out.results[0].url, GOOD_URL);
+    assert.equal(out.results[0].content, '好正文');
+    assert.equal(out.errors.length, 1);
+    assert.equal(out.errors[0].url, BAD_URL);
+    assert.equal(out.errors[0].retryable, false);
+  });
+
+  it('ScrapingAnt 缺 Key 抛 CREDENTIAL_MISSING', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('缺 Key 时不应发起请求');
+    };
+    await assert.rejects(
+      scrapingantFetch({ urls: [GOOD_URL] }, { fetchImpl: neverStub }),
+      (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
+    );
+  });
+
+  it('Apify 三段式逐地址结算互不干扰', async () => {
+    /** @type {Map<string, string>} 运行标识到目标地址的映射 */
+    const runToTarget = new Map();
+    let seq = 0;
+    /** @type {(url: string, init?: any) => Promise<any>} 三段式分流的桩 */
+    const apifyStub = async (url, init = {}) => {
+      const text = String(url);
+      assert.match(text, /apify\.local\/v2/);
+      const method = String(init.method || 'GET').toUpperCase();
+      if (text.includes('/acts/') && method === 'POST') {
+        const asked = JSON.parse(init.body || '{}').startUrls || [];
+        const target = asked[0]?.url || GOOD_URL;
+        seq += 1;
+        const runId = 'run' + seq;
+        runToTarget.set(runId, target);
+        return stubResponse({ data: { id: runId, defaultDatasetId: 'ds-' + runId } });
+      }
+      if (text.includes('/actor-runs/')) {
+        const runId = decodeURIComponent(text.split('/actor-runs/')[1].split('?')[0]);
+        const target = runToTarget.get(runId);
+        if (target === BAD_URL) {
+          return stubResponse({ data: { status: 'FAILED', statusMessage: 'target_unreachable' } });
+        }
+        return stubResponse({ data: { status: 'SUCCEEDED', defaultDatasetId: 'ds-' + runId } });
+      }
+      if (text.includes('/datasets/')) {
+        const dsPart = decodeURIComponent(text.split('/datasets/')[1].split('/')[0]);
+        const target = runToTarget.get(dsPart.replace(/^ds-/, ''));
+        return stubResponse([{ url: target, title: '好标题', markdown: '好正文' }]);
+      }
+      throw new Error('未知 apify 阶段：' + text);
+    };
+    const out = await apifyFetch({ urls: [GOOD_URL, BAD_URL] }, {
+      apifyApiKey: 'test-key',
+      fetchUrlApify: 'https://apify.local/v2',
+      fetchImpl: apifyStub,
+    });
+    assert.equal(out.results.length, 1);
+    assert.equal(out.results[0].url, GOOD_URL);
+    assert.equal(out.results[0].content, '好正文');
+    assert.equal(out.errors.length, 1);
+    assert.equal(out.errors[0].url, BAD_URL);
+    assert.equal(out.errors[0].retryable, true);
+  });
+
+  it('Apify 缺 Key 抛 CREDENTIAL_MISSING', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('缺 Key 时不应发起请求');
+    };
+    await assert.rejects(
+      apifyFetch({ urls: [GOOD_URL] }, { fetchImpl: neverStub }),
+      (/** @type {any} */ error) => (/** @type {any} */ (error)).code === 'CREDENTIAL_MISSING',
+    );
+  });
+});
+
+/** Browserless/Jina/ScrapingAnt/Apify/GNews 占位：无公开余额接口，不触网。 */
+describe('getBrowserlessBalance/getJinaBalance/getScrapingantBalance/getApifyBalance/getGnewsBalance 占位', () => {
+  it('五个占位余额回 null 不触网', async () => {
+    /** @type {(url: string) => Promise<any>} 不应被调用的桩 */
+    const neverStub = async () => {
+      throw new Error('占位不应触碰网络');
+    };
+    const browserlessOut = await getBrowserlessBalance({ fetchImpl: neverStub });
+    assert.equal(browserlessOut.provider, 'browserless');
+    assert.equal(browserlessOut.balance, null);
+    assert.equal(browserlessOut.remaining, null);
+    const jinaOut = await getJinaBalance({ fetchImpl: neverStub });
+    assert.equal(jinaOut.provider, 'jina');
+    assert.equal(jinaOut.balance, null);
+    assert.equal(jinaOut.remaining, null);
+    const scrapingantOut = await getScrapingantBalance({ fetchImpl: neverStub });
+    assert.equal(scrapingantOut.provider, 'scrapingant');
+    assert.equal(scrapingantOut.balance, null);
+    assert.equal(scrapingantOut.remaining, null);
+    const apifyOut = await getApifyBalance({ fetchImpl: neverStub });
+    assert.equal(apifyOut.provider, 'apify');
+    assert.equal(apifyOut.balance, null);
+    assert.equal(apifyOut.remaining, null);
+    const gnewsOut = await getGnewsBalance({ fetchImpl: neverStub });
+    assert.equal(gnewsOut.provider, 'gnews');
+    assert.equal(gnewsOut.balance, null);
+    assert.equal(gnewsOut.remaining, null);
+  });
+});
+
 /** 回退链：主供应商可重试失败后，回退补抓成功并置 fallbackUsed。 */
 describe('dispatchTool 回退链', () => {
   it('主失败走回退且标记 fallbackUsed', async () => {
@@ -422,7 +908,7 @@ describe('dispatchTool 回退链', () => {
     assert.equal(out.errors.length, 0);
   });
 
-  it('并行分片上限 8 级且不可重试不重打', async () => {
+  it('并行分片上限 12 级且不可重试不重打', async () => {
     /** @type {string[]} */
     const seen = [];
     /** @type {(url: string, init?: any) => Promise<any>} 按分片回包的桩 */
@@ -445,6 +931,45 @@ describe('dispatchTool 回退链', () => {
     assert.equal(out.results.length, 1);
     assert.equal(out.errors.length, 1);
     assert.equal(out.errors[0].retryable, false);
+  });
+  it('16 级 chain 不截断全部分片开打', async () => {
+    /** @type {string[]} 上游实际命中的请求地址 */
+    const seenSixteen = [];
+    /** @type {(url: string, init?: any) => Promise<any>} 全形态兼容的通用桩 */
+    const sixteenStub = async (url) => {
+      seenSixteen.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => '' },
+        json: async () => ({ results: [], errors: [], failed_results: [], statuses: [] }),
+        text: async () => '',
+      };
+    };
+    const chain = ['tinyfish', 'tavily', 'exa', 'browserless', 'jina', 'scrapingant', 'scrapedo', 'scraperapi', 'firecrawl', 'hasdata', 'tinyfish', 'tavily', 'exa', 'browserless', 'jina', 'scrapingant'];
+    const urls = ['tinyfish', 'tavily', 'exa', 'browserless', 'jina', 'scrapingant', 'scrapedo', 'scraperapi', 'firecrawl', 'hasdata'].map((name) => 'https://case.local/' + name);
+    const out = await dispatchTool(
+      'so_fetch',
+      { urls, chain },
+      /** @type {any} */ ({
+        tinyfishApiKey: 'test-key',
+        tavilyApiKey: 'test-key',
+        exaApiKey: 'test-key',
+        browserlessApiKey: 'test-key',
+        jinaApiKey: 'test-key',
+        scrapingantApiKey: 'test-key',
+        scrapedoApiKey: 'test-key',
+        scraperapiApiKey: 'test-key',
+        firecrawlApiKey: 'test-key',
+        hasdataApiKey: 'test-key',
+        fetchImpl: sixteenStub,
+      }),
+    );
+    // 16 级去重后十家并行：十地址轮转分片，每家至少被实际调用一次，不断言截断。
+    assert.equal(out.providers.length, 10);
+    for (const marker of ['api.fetch.tinyfish.ai', 'api.tavily.com/extract', 'api.exa.ai', 'browserless.io', 'localhost:3000', 'scrapingant.com', 'api.scrape.do', 'api.scraperapi.com', 'api.firecrawl.dev', 'api.hasdata.com']) {
+      assert.ok(seenSixteen.some((hit) => hit.includes(marker)), '16 级 chain 未打到：' + marker);
+    }
   });
 });
 

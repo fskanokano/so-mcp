@@ -4,7 +4,7 @@
  * 覆盖 initialize 回服务名 / tools.list 回三工具名 / so_search 映射正确 /
  * so_fetch 回退链正确 / 搜索扇出去重正确 / 验证引用装配正确 /
  * handleCredits 动态键双家 OK 且无汇总字段 /
- * 空名单回代理未配置 / 单家只回单键 / 八家扇出八键齐全。
+ * 空名单回代理未配置 / 单家只回单键 / 十六家扇出十六键齐全。
  * 任一步失败即非零退出；全部通过打印中文通过行。
  */
 
@@ -56,13 +56,101 @@ async function stubFetch(url, init = {}) {
   if (text.includes('api.tavily.com/search')) {
     return stubResponse({ results: STUB_SEARCH_RESULTS });
   }
+  if (text.includes('api.langsearch.com/v1/web-search')) {
+    return stubResponse({
+      results: [
+        { title: '冒烟郎搜一', url: 'https://smoke.local/langsearch-1', content: '冒烟郎搜正文一' },
+        { title: '冒烟郎搜二', url: 'https://smoke.local/langsearch-2', content: '冒烟郎搜正文二' },
+      ],
+    });
+  }
+  if (text.includes('api.ydc-index.io/search')) {
+    return stubResponse({
+      results: [
+        { title: '冒烟优搜一', url: 'https://smoke.local/youcom-1', snippet: '冒烟优搜正文一' },
+        { title: '冒烟优搜二', url: 'https://smoke.local/youcom-2', snippet: '冒烟优搜正文二' },
+      ],
+    });
+  }
+  if (text.includes('api.ydc-index.io/contents')) {
+    return stubResponse({
+      contents: [{ url: FALLBACK_URL, title: '冒烟优抓', markdown: '冒烟优抓正文' }],
+    });
+  }
+  if (text.includes('gnews.io/api/v4/search')) {
+    return stubResponse({
+      articles: [
+        { title: '冒烟 G 新闻一', url: 'https://smoke.local/gnews-1', description: '冒烟 G 新闻正文一' },
+        { title: '冒烟 G 新闻二', url: 'https://smoke.local/gnews-2', description: '冒烟 G 新闻正文二' },
+      ],
+    });
+  }
+  if (text.includes('s.jina.ai')) {
+    return stubResponse({
+      results: [
+        { title: '冒烟 Jina 一', url: 'https://smoke.local/jina-1', content: '冒烟 Jina 正文一' },
+        { title: '冒烟 Jina 二', url: 'https://smoke.local/jina-2', content: '冒烟 Jina 正文二' },
+      ],
+    });
+  }
+  if (text.includes('api.brightdata.com/request')) {
+    return /** @type {any} */ ({
+      ok: true,
+      status: 200,
+      headers: { get: () => '' },
+      text: async () => '# 冒烟亮数\n冒烟亮数正文',
+    });
+  }
   if (text.includes('api.tavily.com/extract')) {
     const body = JSON.parse(init.body || '{}');
     const urls = Array.isArray(body.urls) ? body.urls : [];
     return stubResponse({
-      results: urls.map((target) => ({ url: target, title: '冒烟抓取', raw_content: '冒烟抓取正文' })),
+      results: urls.map((/** @type {any} */ target) => ({ url: target, title: '冒烟抓取', raw_content: '冒烟抓取正文' })),
       failed_results: [],
     });
+  }
+  if (text.includes('browserless.io')) {
+    return /** @type {any} */ ({
+      ok: true,
+      status: 200,
+      headers: { get: () => '' },
+      text: async () => '# 冒烟无头\n冒烟无头正文',
+      json: async () => ({}),
+    });
+  }
+  if (text.includes('localhost:3000')) {
+    return /** @type {any} */ ({
+      ok: true,
+      status: 200,
+      headers: { get: () => '' },
+      text: async () => '# 冒烟 Jina 抓取\n冒烟 Jina 抓取正文',
+      json: async () => ({}),
+    });
+  }
+  if (text.includes('scrapingant.com')) {
+    return /** @type {any} */ ({
+      ok: true,
+      status: 200,
+      headers: { get: () => '' },
+      text: async () => '<html><head><title>冒烟蚁</title></head><body>冒烟蚁正文</body></html>',
+      json: async () => ({}),
+    });
+  }
+  if (text.includes('api.apify.com')) {
+    if (text.includes('/acts/')) {
+      return stubResponse({ data: { id: 'smoke-run-1', defaultDatasetId: 'smoke-ds-1' } });
+    }
+    if (text.includes('/actor-runs/')) {
+      return stubResponse({
+        data: { status: 'SUCCEEDED', defaultDatasetId: 'smoke-ds-1', stats: { totalChargeUsd: 0.001 } },
+      });
+    }
+    if (text.includes('/datasets/')) {
+      return stubResponse([
+        { url: 'https://smoke.local/apify', title: '冒烟 Apify', markdown: '冒烟 Apify 正文' },
+      ]);
+    }
+    return stubResponse({ data: { id: 'smoke-run-1', defaultDatasetId: 'smoke-ds-1' } });
   }
   if (text.includes('api.tavily.com/usage')) {
     return stubResponse({
@@ -265,7 +353,7 @@ async function main() {
   check(!('balance' in (okBody?.data ?? {})), 'handleCredits 不应回汇总 balance 字段');
   console.log('通过：handleCredits 双家动态键均 OK 且无汇总字段');
 
-  // 6. handleCredits 空名单：八上游密钥均缺配才回 500 代理未配置。
+  // 6. handleCredits 空名单：十六家上游密钥均缺配才回 500 代理未配置。
   const emptyRequest = new Request('https://smoke.local/credits', {
     headers: { Authorization: 'Bearer ' + PROXY_KEY },
   });
@@ -278,7 +366,7 @@ async function main() {
   check(emptyBody?.error === 'proxy_misconfigured', 'handleCredits 空名单时未报代理未配置');
   console.log('通过：handleCredits 空名单时回 500 代理未配置');
 
-  // 7. handleCredits 单家：仅 TINYFISH_API_KEY 时只回 tinyfish 单键。
+  // 7. handleCredits 单家：仅 TINYFISH_API_KEY 时只回 tinyfish 单键（十六家名单下其余缺席）。
   const singleRequest = new Request('https://smoke.local/credits', {
     headers: { Authorization: 'Bearer ' + PROXY_KEY },
   });
@@ -294,7 +382,7 @@ async function main() {
   check(singleBody?.data?.tinyfish?.provider === 'tinyfish', 'handleCredits 单家 tinyfish 键缺失');
   check(!('tavily' in (singleBody?.data ?? {})), 'handleCredits 单家时不应补 tavily 空键');
   console.log('通过：handleCredits 单家只回 tinyfish 单键');
-  // 8. handleCredits 八家扇出：八 Key 全配时 data 恰含八键，exa/querit 为 null 占位。
+  // 8. handleCredits 十六家扇出：十六 Key 全配时 data 恰含十六键，exa/querit/langsearch/youcom/brightdata/browserless/jina/scrapingant/apify/gnews 为 null 占位（余额占位无需触网）。
   const fullRequest = new Request('https://smoke.local/credits', {
     headers: { Authorization: 'Bearer ' + PROXY_KEY },
   });
@@ -311,19 +399,35 @@ async function main() {
         FIRECRAWL_API_KEY: 'smoke-firecrawl-key',
         SCRAPEDO_API_KEY: 'smoke-scrapedo-key',
         SCRAPERAPI_API_KEY: 'smoke-scraperapi-key',
+        LANGSEARCH_API_KEY: 'smoke-langsearch-key',
+        YOUCOM_API_KEY: 'smoke-youcom-key',
+        BRIGHTDATA_API_KEY: 'smoke-brightdata-key',
+        BROWSERLESS_API_KEY: 'smoke-browserless-key',
+        JINA_API_KEY: 'smoke-jina-key',
+        SCRAPINGANT_API_KEY: 'smoke-scrapingant-key',
+        APIFY_API_KEY: 'smoke-apify-key',
+        GNEWS_API_KEY: 'smoke-gnews-key',
       },
       fetchImpl: stubFetch,
     },
   );
   const fullBody = await fullResponse.json();
-  check(fullResponse.status === 200, 'handleCredits 八家扇出时未回 200');
-  check(Object.keys(fullBody?.data ?? {}).length === 8, 'handleCredits 八家扇出时 data 应恰含八键');
-  for (const name of ['tinyfish', 'tavily', 'exa', 'querit', 'hasdata', 'firecrawl', 'scrapedo', 'scraperapi']) {
-    check(fullBody?.data?.[name]?.provider === name, 'handleCredits 八家扇出缺失：' + name);
+  check(fullResponse.status === 200, 'handleCredits 十六家扇出时未回 200');
+  check(Object.keys(fullBody?.data ?? {}).length === 16, 'handleCredits 十六家扇出时 data 应恰含十六键');
+  for (const name of ['tinyfish', 'tavily', 'exa', 'querit', 'hasdata', 'firecrawl', 'scrapedo', 'scraperapi', 'langsearch', 'youcom', 'brightdata', 'browserless', 'jina', 'scrapingant', 'apify', 'gnews']) {
+    check(fullBody?.data?.[name]?.provider === name, 'handleCredits 十六家扇出缺失：' + name);
   }
   check(fullBody?.data?.exa?.balance === null, 'handleCredits exa 应为 null 占位');
   check(fullBody?.data?.querit?.balance === null, 'handleCredits querit 应为 null 占位');
-  console.log('通过：handleCredits 八家扇出八键齐全且 exa/querit 为 null 占位');
+  check(fullBody?.data?.langsearch?.balance === null, 'handleCredits langsearch 应为 null 占位');
+  check(fullBody?.data?.youcom?.balance === null, 'handleCredits youcom 应为 null 占位');
+  check(fullBody?.data?.brightdata?.balance === null, 'handleCredits brightdata 应为 null 占位');
+  check(fullBody?.data?.browserless?.balance === null, 'handleCredits browserless 应为 null 占位');
+  check(fullBody?.data?.jina?.balance === null, 'handleCredits jina 应为 null 占位');
+  check(fullBody?.data?.scrapingant?.balance === null, 'handleCredits scrapingant 应为 null 占位');
+  check(fullBody?.data?.apify?.balance === null, 'handleCredits apify 应为 null 占位');
+  check(fullBody?.data?.gnews?.balance === null, 'handleCredits gnews 应为 null 占位');
+  console.log('通过：handleCredits 十六家扇出十六键齐全且 exa/querit/langsearch/youcom/brightdata/browserless/jina/scrapingant/apify/gnews 为 null 占位');
   console.log('冒烟全部通过');
 }
 main().catch((error) => {
