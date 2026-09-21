@@ -201,7 +201,7 @@ describe('youcomSearch 映射与缺键', () => {
   it('两种字段形态都归一', async () => {
     /** @type {(url: string, init?: any) => Promise<any>} You.com 搜索桩 */
     const youcomStub = async (url) => {
-      assert.match(String(url), /api\.ydc-index\.io\/search/);
+      assert.match(String(url), /ydc-index\.io\/v1\/search/);
       return stubResponse({
         results: [
           { title: '优标题甲', url: 'https://case.local/1', snippet: '优正文甲' },
@@ -967,7 +967,7 @@ describe('dispatchTool 回退链', () => {
     );
     // 16 级去重后十家并行：十地址轮转分片，每家至少被实际调用一次，不断言截断。
     assert.equal(out.providers.length, 10);
-    for (const marker of ['api.fetch.tinyfish.ai', 'api.tavily.com/extract', 'api.exa.ai', 'browserless.io', 'cc.bingj.com', 'scrapingant.com', 'api.scrape.do', 'api.scraperapi.com', 'api.firecrawl.dev', 'api.hasdata.com']) {
+    for (const marker of ['api.fetch.tinyfish.ai', 'api.tavily.com/extract', 'api.exa.ai', 'browserless.io', 'r.jina.ai', 'scrapingant.com', 'api.scrape.do', 'api.scraperapi.com', 'api.firecrawl.dev', 'api.hasdata.com']) {
       assert.ok(seenSixteen.some((hit) => hit.includes(marker)), '16 级 chain 未打到：' + marker);
     }
   });
